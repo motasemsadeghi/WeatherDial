@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#141416">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="هوا">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>هواشناسی چهارتکه</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f1ea;--fg:#1d1d1f;--mute:#6b6b70;--sec:#d13b2e;--tile:#fffdf8;--tick:#9a9a9f;--uv:#d98c00;--hum:#1f78d1;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141416;--fg:#ececef;--mute:#98989f;--sec:#ff6a5c;--tile:#1d1d21;--tick:#5d5d64;--uv:#ffc247;--hum:#5aaaff}}
+:root[data-theme="dark"]{--bg:#141416;--fg:#ececef;--mute:#98989f;--sec:#ff6a5c;--tile:#1d1d21;--tick:#5d5d64;--uv:#ffc247;--hum:#5aaaff}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font-family:Vazirmatn,Tahoma,sans-serif}
+body{display:flex;align-items:center;justify-content:center;padding:16px}
+svg{width:min(96vw,92vh,720px);height:auto;max-width:100%;display:block;direction:ltr;filter:drop-shadow(0 10px 18px rgba(0,0,0,.18))}
+.frame{fill:var(--tile);stroke:var(--fg);stroke-width:5}
+.arc{fill:none;stroke:var(--fg);stroke-width:2.5}
+.tk{stroke:var(--tick);stroke-width:1.5}
+.lbl{font-size:11px;fill:var(--mute);text-anchor:middle;dominant-baseline:central}
+.lbl.r{fill:var(--sec)}.lbl.uv{fill:var(--uv)}.lbl.hu{fill:var(--hum)}.arc.uv{stroke:var(--uv)}.arc.hu{stroke:var(--hum)}
+.t,.m{unicode-bidi:plaintext}
+.t{dominant-baseline:central;font-weight:700;fill:var(--fg)}
+.m{font-weight:400;fill:var(--mute)}.r{fill:var(--sec)}
+.hand{stroke-linecap:round}
+.tip{stroke:var(--tile);stroke-width:2}
+</style>
+</head>
+<body>
+<svg viewBox="0 0 400 400" role="img" aria-label="هواشناسی"><g id="g"></g></svg>
+<script>
+// ---- تنظیمات ----
+const Q=new URLSearchParams(location.search);
+const LAT=+(Q.get("lat")||41.03), LON=+(Q.get("lon")||28.67), CITY=Q.get("name")||"اسنیورت، استانبول";
+const PX=34,PY=366,RB=175,RS=95,NS="http://www.w3.org/2000/svg";
+const fa=(n,d=0)=>Number(n).toLocaleString("fa-IR",{useGrouping:false,maximumFractionDigits:d});
+const g=document.getElementById("g");
+function el(n,a,p,tx){const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);if(tx!=null)e.textContent=tx;(p||g).appendChild(e);return e}
+// c: bl = پایین-چپ ، tr = بالا-راست (۱۸۰ درجه چرخیده، متن‌ها صاف می‌مانند)
+const P=(c,r,t)=>{const dx=r*Math.sin(t*Math.PI/180),dy=r*Math.cos(t*Math.PI/180);return c==="bl"?[PX+dx,PY-dy]:[400-PX-dx,400-PY+dy]};
+const piv=c=>c==="bl"?[PX,PY]:[400-PX,400-PY];
+el("rect",{x:6,y:6,width:388,height:388,rx:44,class:"frame"});
+const hands=[];
+function gauge(c,r,lo,hi,labels,opt={}){
+  const a=P(c,r,0),b=P(c,r,90);
+  el("path",{d:`M ${a[0]} ${a[1]} A ${r} ${r} 0 0 1 ${b[0]} ${b[1]}`,class:"arc"+(opt.cls?" "+opt.cls:"")});
+  const pos=v=>90*Math.min(1,Math.max(0,(v-lo)/(hi-lo)));
+  labels.forEach(v=>{const t=pos(v),p1=P(c,r,t),p2=P(c,r-8,t),p3=P(c,opt.in?r-18:r+14,t);
+    el("line",{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],class:"tk"});
+    el("text",{x:p3[0],y:p3[1],class:"lbl"+(opt.in?" r":"")+(opt.cls?" "+opt.cls:"")},null,opt.fmt?opt.fmt(v):fa(v))});
+  return {c,r,pos};
+}
+function hand(G,color,w,tipR){
+  const [x0,y0]=piv(G.c),l=el("line",{class:"hand",stroke:color,"stroke-width":w,x1:x0,y1:y0});
+  const tp=el("circle",{r:tipR,fill:color,class:"tip"});
+  const h={G,l,tp,cur:0,tg:0};hands.push(h);return h;
+}
+// ---- کمان‌ها ----
+const aqi=gauge("tr",RB,0,300,[0,100,200,300]);
+const eu=gauge("tr",RB,0,100,[20,40,60,80,100],{in:1});
+const uv=gauge("tr",RS,0,12,[0,3,6,9,12],{cls:"uv"});
+const hu=gauge("bl",RS,0,100,[0,50,100],{cls:"hu"});
+let tempG=null;
+// قاب مرکز
+[["tr"],["bl"]].forEach(([c])=>{const [x,y]=piv(c);el("circle",{cx:x,cy:y,r:9,fill:"var(--tile)",stroke:"var(--fg)","stroke-width":3.5});el("circle",{cx:x,cy:y,r:3,fill:"var(--sec)"})});
+const hUS=hand(aqi,"var(--fg)",3.5,5),hEU=hand(eu,"var(--sec)",2.5,5),hUV=hand(uv,"var(--uv)",2.5,4.5),hHU=hand(hu,"var(--hum)",2.5,4.5);
+let hCur,hFeel,dewMark,tl=[];
+// ---- متن‌ها ----
+const T=(x,y,s,cls)=>el("text",{x,y,class:cls,"font-size":s,"text-anchor":"start"},null,"");
+T(26,44,13,"m").textContent=CITY;
+// ---- لجند ----
+function LG(x,y,col,w,r,label,tick){
+  if(tick)el("line",{x1:x+8,y1:y-5,x2:x+8,y2:y+5,stroke:col,"stroke-width":3,"stroke-linecap":"round"});
+  else{el("line",{x1:x,y1:y,x2:x+16,y2:y,stroke:col,"stroke-width":w*.75,"stroke-linecap":"round"});el("circle",{cx:x+16,cy:y,r:r*.75,fill:col});}
+  T(x+28,y,11,"t").textContent=label;
+}
+LG(26,78,"var(--fg)",3.5,5,"کیفیت هوا (آمریکا)");
+LG(26,98,"var(--sec)",2.5,5,"کیفیت هوا (اروپا)");
+LG(26,118,"var(--uv)",2.5,4.5,"UV");
+LG(250,306,"var(--fg)",3.5,5,"دمای فعلی");
+LG(250,326,"var(--sec)",2.5,5,"دمای احساسی");
+LG(250,346,"var(--sec)",0,0,"نقطه شبنم",1);
+LG(250,366,"var(--hum)",2.5,4.5,"رطوبت");
+// ---- داده ----
+const f=(u)=>fetch(u).then(r=>{if(!r.ok)throw 0;return r.json()});
+async function load(){
+  let d;
+  try{
+    const [w,a]=await Promise.all([
+      f(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`),
+      f(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&current=us_aqi,european_aqi,uv_index&timezone=auto`)]);
+    d={t:w.current.temperature_2m,fl:w.current.apparent_temperature,hu:w.current.relative_humidity_2m,dew:w.current.dew_point_2m,
+       mn:w.daily.temperature_2m_min[0],mx:w.daily.temperature_2m_max[0],us:a.current.us_aqi,eu:a.current.european_aqi,uv:a.current.uv_index,ts:Date.now()};
+    try{localStorage.setItem("qw",JSON.stringify(d))}catch(e){}
+  }catch(e){try{d=JSON.parse(localStorage.getItem("qw"))}catch(e2){}}
+  if(d)show(d);
+}
+function show(d){
+  const vals=[d.mn,d.mx,d.t,d.fl,d.dew],lo=Math.floor(Math.min(...vals))-1,hi=Math.ceil(Math.max(...vals))+1;
+  if(!tempG){tempG=gauge("bl",RB,lo,hi,[lo,Math.round((lo+hi)/2),hi],{fmt:v=>fa(v)+"°"});
+    hCur=hand(tempG,"var(--fg)",3.5,5);hFeel=hand(tempG,"var(--sec)",2.5,5);
+    dewMark=el("line",{stroke:"var(--sec)","stroke-width":4,"stroke-linecap":"round"});}
+  const pos=v=>90*Math.min(1,Math.max(0,(v-lo)/(hi-lo)));
+  hCur.tg=pos(d.t);hFeel.tg=pos(d.fl);
+  const a=P("bl",RB-9,pos(d.dew)),b=P("bl",RB+9,pos(d.dew));
+  dewMark.setAttribute("x1",a[0]);dewMark.setAttribute("y1",a[1]);dewMark.setAttribute("x2",b[0]);dewMark.setAttribute("y2",b[1]);
+  hUS.tg=90*Math.min(1,d.us/300);hEU.tg=90*Math.min(1,d.eu/100);hUV.tg=90*Math.min(1,d.uv/12);hHU.tg=90*d.hu/100;
+}
+// ---- انیمیشن عقربه‌ها ----
+(function loop(){
+  hands.forEach(h=>{h.cur+=(h.tg-h.cur)*.07;if(Math.abs(h.tg-h.cur)<.05)h.cur=h.tg;
+    const p=P(h.G.c,h.G.r,h.cur);h.l.setAttribute("x2",p[0]);h.l.setAttribute("y2",p[1]);h.tp.setAttribute("cx",p[0]);h.tp.setAttribute("cy",p[1])});
+  requestAnimationFrame(loop)})();
+load();setInterval(load,15*60*1000);
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
