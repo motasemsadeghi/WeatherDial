@@ -73,7 +73,7 @@ const hUS=hand(aqi,"var(--fg)",3.5,5),hEU=hand(eu,"var(--sec)",2.5,5),hUV=hand(u
 let hCur,hFeel,dewMark,tl=[];
 // ---- متن‌ها ----
 const T=(x,y,s,cls)=>el("text",{x,y,class:cls,"font-size":s,"text-anchor":"start"},null,"");
-T(26,44,13,"m").textContent=CITY;
+const cityEl=T(26,44,13,"m");cityEl.textContent=CITY;
 // ---- لجند ----
 function LG(x,y,col,w,r,label,tick){
   if(tick)el("line",{x1:x+8,y1:y-5,x2:x+8,y2:y+5,stroke:col,"stroke-width":3,"stroke-linecap":"round"});
@@ -89,12 +89,26 @@ LG(250,346,"var(--sec)",0,0,"نقطه شبنم",1);
 LG(250,366,"var(--hum)",2.5,4.5,"رطوبت");
 // ---- داده ----
 const f=(u)=>fetch(u).then(r=>{if(!r.ok)throw 0;return r.json()});
+// موقعیت: پارامتر آدرس > GPS دستگاه > آخرین موقعیت ذخیره‌شده > پیش‌فرض
+async function where(){
+  if(Q.get("lat"))return{lat:LAT,lon:LON,name:CITY};
+  try{
+    const p=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(ok,no,{timeout:8000,maximumAge:600000}));
+    const L={lat:p.coords.latitude,lon:p.coords.longitude,name:"موقعیت فعلی"};
+    try{localStorage.setItem("qloc",JSON.stringify(L))}catch(e){}
+    return L;
+  }catch(e){
+    try{const L=JSON.parse(localStorage.getItem("qloc"));if(L)return L}catch(e2){}
+    return{lat:LAT,lon:LON,name:CITY};
+  }
+}
 async function load(){
   let d;
+  const L=await where();cityEl.textContent=L.name;
   try{
     const [w,a]=await Promise.all([
-      f(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`),
-      f(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&current=us_aqi,european_aqi,uv_index&timezone=auto`)]);
+      f(`https://api.open-meteo.com/v1/forecast?latitude=${L.lat}&longitude=${L.lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`),
+      f(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${L.lat}&longitude=${L.lon}&current=us_aqi,european_aqi,uv_index&timezone=auto`)]);
     d={t:w.current.temperature_2m,fl:w.current.apparent_temperature,hu:w.current.relative_humidity_2m,dew:w.current.dew_point_2m,
        mn:w.daily.temperature_2m_min[0],mx:w.daily.temperature_2m_max[0],us:a.current.us_aqi,eu:a.current.european_aqi,uv:a.current.uv_index,ts:Date.now()};
     try{localStorage.setItem("qw",JSON.stringify(d))}catch(e){}
